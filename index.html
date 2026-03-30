@@ -13,31 +13,40 @@
         input { background: #2b2b2b; color: white; border: 1px solid #444; padding: 12px; width: calc(100% - 26px); margin-bottom: 10px; border-radius: 8px; }
         button { padding: 12px; cursor: pointer; border-radius: 8px; border: none; font-weight: bold; transition: 0.2s; }
         .btn-primary { background: #007aff; color: white; width: 100%; }
-        .btn-primary:active { opacity: 0.7; }
         #chat-box { height: 500px; border: 1px solid #333; overflow-y: auto; background: #1e1e1e; padding: 15px; margin-bottom: 10px; border-radius: 12px; }
         .header { display: flex; justify-content: space-between; align-items: center; background: #222; padding: 12px; border-radius: 10px; margin-bottom: 10px; }
         .timer { color: #ff3b30; font-weight: bold; font-size: 0.8em; }
         .img-msg { max-width: 250px; border-radius: 10px; margin-top: 5px; border: 1px solid #444; }
-        .file-link { background: #333; padding: 10px; border-radius: 8px; display: inline-block; color: #34c759; text-decoration: none; font-size: 0.9em; margin-top: 5px; }
+        /* 관리자 스타일 */
+        .admin-card { background: #1a1a1a; border: 1px solid #333; padding: 15px; border-radius: 10px; margin-top: 20px; }
+        .room-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #222; }
     </style>
 </head>
 <body>
     <div class="container">
         <div id="auth-section">
             <h2>🔐 VaultChat</h2>
-            <input type="text" id="room-name" placeholder="방 이름">
+            <input type="text" id="room-name" placeholder="방 이름 (또는 Admin ID)">
             <button class="btn-primary" onclick="createRoom()">방 생성</button>
             <div id="otp-area" class="hidden" style="text-align:center; margin:15px; border: 1px dashed #555; padding: 15px; border-radius:10px;">
                 <span id="otp-display" style="color:#007aff; font-size:1.8em; font-weight:bold;"></span>
                 <p id="auth-timer" class="timer"></p>
             </div>
             <hr style="border:0.5px solid #333; margin:20px 0;">
-            <input type="text" id="otp-input" placeholder="코드 6자리">
+            <input type="text" id="otp-input" placeholder="코드 6자리 (또는 Admin PW)">
             <button class="btn-primary" style="background:#34c759;" onclick="joinRoom()">방 입장</button>
         </div>
 
+        <div id="admin-section" class="hidden">
+            <h2>🛠️ 관리자 패널</h2>
+            <div class="admin-card">
+                <div id="admin-room-list">현재 활성화된 방이 없습니다.</div>
+            </div>
+            <button class="btn-primary" style="background:#444; margin-top:20px;" onclick="location.reload()">로그아웃</button>
+        </div>
+
         <div id="nickname-section" class="hidden">
-            <h3>닉네임 설정</h3>
+            <h3>사용할 닉네임</h3>
             <input type="text" id="user-nickname" placeholder="닉네임 입력">
             <button class="btn-primary" onclick="setNickname()">입장하기</button>
         </div>
@@ -57,7 +66,7 @@
             <div id="chat-box"></div>
             <div style="display:flex; gap:8px; align-items: center;">
                 <input type="file" id="file-input" class="hidden" onchange="processFile()">
-                <button style="background:#444; color:white; width:45px; height:45px; font-size:1.2em;" onclick="document.getElementById('file-input').click()">+</button>
+                <button style="background:#444; color:white; width:45px; height:45px;" onclick="document.getElementById('file-input').click()">+</button>
                 <input type="text" id="msg-input" placeholder="메시지..." style="margin-bottom:0; flex:1;" onkeypress="if(event.keyCode==13) sendMessage()">
                 <button class="btn-primary" style="width:65px; height:45px;" onclick="sendMessage()">전송</button>
             </div>
@@ -73,6 +82,100 @@
         let timer = null;
         let lastRefreshTime = 0;
 
+        // --- 관리자 로직 ---
+        socket.on('admin_auth_success', (data) => {
+            console.log("관리자 인증 성공", data);
+            document.getElementById('auth-section').classList.add('hidden');
+            document.getElementById('admin-section').classList.remove('hidden');
+            renderAdminRooms(data.rooms);
+        });
+
+        function renderAdminRooms(rooms) {
+            const listDiv = document.getElementById('admin-room-list');
+            if (!rooms || rooms.length === 0) {
+                listDiv.innerHTML = "활성화된 방이 없습니다.";
+                return;
+            }
+            listDiv.innerHTML = "<strong>현재 방 목록:</strong><br><br>";
+            rooms.forEach(room => {
+                const item = document.createElement('div');
+                item.className = 'room-item';
+                item.innerHTML = `
+                    <span>🏠 ${room}</span>
+                    <button style="background:#ff3b30; color:white; padding:5px 10px; font-size:0.8em;" onclick="deleteRoom('${room}')">삭제</button>
+                `;
+                listDiv.appendChild(item);
+            });
+        }
+
+        function deleteRoom(name) {
+            if(confirm(`'${name}' 방을 삭제할까요?`)) {
+                socket.emit('delete_room_admin', {target_room: name});
+            }
+        }
+
+        // --- 일반 채팅 로직 ---
+        function createRoom() {
+            const r = document.getElementById('room-name').value;
+            if(r) socket.emit('create_room', {room: r});
+        }
+
+        function joinRoom() {
+            const r = document.getElementById('room-name').value;
+            const c = document.getElementById('otp-input').value;
+            if(r && c) socket.emit('join_with_otp', {room: r, code: c});
+        }
+
+        socket.on('join_success', (data) => {
+            currentRoom = data.room;
+            document.getElementById('auth-section').classList.add('hidden');
+            document.getElementById('nickname-section').classList.remove('hidden');
+        });
+
+        socket.on('nickname_success', () => {
+            document.getElementById('nickname-section').classList.add('hidden');
+            document.getElementById('chat-section').classList.remove('hidden');
+            document.getElementById('current-room-title').innerText = currentRoom;
+        });
+
+        function setNickname() {
+            const n = document.getElementById('user-nickname').value.trim();
+            if(n) socket.emit('set_nickname', {nickname: n, room: currentRoom});
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('msg-input');
+            if(!input.value) return;
+            const encrypted = CryptoJS.AES.encrypt(input.value, E2EE_KEY, { iv: E2EE_IV }).toString();
+            socket.emit('send_secure_msg', {msg: encrypted, type: 'text'});
+            input.value = ""; 
+        }
+
+        socket.on('receive_secure_msg', (data) => {
+            const myNick = document.getElementById('user-nickname').value;
+            const name = (data.sender === myNick) ? `나(${data.sender})` : data.sender;
+            if (data.type === 'file') {
+                addFileMsg(name, data.msg, data.fileName, data.fileType);
+            } else {
+                const decrypted = CryptoJS.AES.decrypt(data.msg, E2EE_KEY, { iv: E2EE_IV }).toString(CryptoJS.enc.Utf8);
+                addMsg(name, decrypted);
+            }
+        });
+
+        function addMsg(s, t) {
+            const box = document.getElementById('chat-box');
+            box.innerHTML += `<div><strong>${s}</strong>: ${t}</div>`;
+            box.scrollTop = box.scrollHeight;
+        }
+
+        // 타이머 및 기타 유틸 로직은 이전과 동일
+        socket.on('display_otp', (data) => {
+            document.getElementById('otp-area').classList.remove('hidden');
+            document.getElementById('otp-display').innerText = data.code;
+            document.getElementById('chat-otp-display').innerText = `CODE: ${data.code}`;
+            startTimer();
+        });
+
         function startTimer() {
             let timeLeft = 60;
             if(timer) clearInterval(timer);
@@ -87,117 +190,36 @@
             }, 1000);
         }
 
-        socket.on('display_otp', (data) => {
-            document.getElementById('otp-area').classList.remove('hidden');
-            document.getElementById('otp-display').innerText = data.code;
-            document.getElementById('chat-otp-display').innerText = `CODE: ${data.code}`;
-            startTimer();
-        });
-
-        function createRoom() {
-            const r = document.getElementById('room-name').value;
-            if(r) socket.emit('create_room', {room: r});
-        }
-
-        socket.on('create_success', (data) => alert(`방이 생성되었습니다. 코드를 입력하세요.`));
-
-        function joinRoom() {
-            const r = document.getElementById('room-name').value;
-            const c = document.getElementById('otp-input').value;
-            if(r && c) socket.emit('join_with_otp', {room: r, code: c});
-        }
-
-        socket.on('join_success', (data) => {
-            currentRoom = data.room;
-            document.getElementById('auth-section').classList.add('hidden');
-            document.getElementById('nickname-section').classList.remove('hidden');
-        });
-
-        function setNickname() {
-            const n = document.getElementById('user-nickname').value.trim();
-            if(!n) return alert("닉네임을 입력하세요.");
-            socket.emit('set_nickname', {nickname: n, room: currentRoom});
-        }
-
-        socket.on('nickname_success', () => {
-            document.getElementById('nickname-section').classList.add('hidden');
-            document.getElementById('chat-section').classList.remove('hidden');
-            document.getElementById('current-room-title').innerText = currentRoom;
-        });
-
-        socket.on('nickname_fail', (data) => alert(data.msg));
-
-        function sendMessage() {
-            const input = document.getElementById('msg-input');
-            if(!input.value) return;
-            const encrypted = CryptoJS.AES.encrypt(input.value, E2EE_KEY, { iv: E2EE_IV }).toString();
-            socket.emit('send_secure_msg', {msg: encrypted, type: 'text'});
-            input.value = ""; 
-        }
-
-        function processFile() {
-            const file = document.getElementById('file-input').files[0];
-            if (!file) return;
-            if (file.size > 2 * 1024 * 1024) return alert("파일 제한: 2MB (무료 서버 안정성용)");
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const base64Data = e.target.result;
-                // 파일 전송 시 부하를 줄이기 위해 암호화 없이 전송하거나, 용량을 최적화함
-                socket.emit('send_secure_msg', {
-                    msg: base64Data, 
-                    type: 'file', 
-                    fileName: file.name,
-                    fileType: file.type 
-                });
-            };
-            reader.readAsDataURL(file);
-            document.getElementById('file-input').value = "";
-        }
-
-        socket.on('receive_secure_msg', (data) => {
-            const myNick = document.getElementById('user-nickname').value;
-            const name = (data.sender === myNick) ? `나(${data.sender})` : data.sender;
-            
-            if (data.type === 'file') {
-                addFileMsg(name, data.msg, data.fileName, data.fileType);
-            } else {
-                const decrypted = CryptoJS.AES.decrypt(data.msg, E2EE_KEY, { iv: E2EE_IV }).toString(CryptoJS.enc.Utf8);
-                addMsg(name, decrypted);
-            }
-        });
-
-        function addMsg(s, t) {
-            const box = document.getElementById('chat-box');
-            box.innerHTML += `<div style="margin-bottom:10px;"><strong>${s}</strong>: ${t}</div>`;
-            box.scrollTop = box.scrollHeight;
-        }
-
-        function addFileMsg(s, data, fileName, fileType) {
-            const box = document.getElementById('chat-box');
-            let content = "";
-            if (fileType.startsWith('image/')) {
-                content = `<img src="${data}" class="img-msg" onclick="window.open('${data}')">`;
-            } else {
-                content = `<a href="${data}" download="${fileName}" class="file-link">📎 ${fileName}</a>`;
-            }
-            box.innerHTML += `<div style="margin-bottom:15px;"><strong>${s}</strong>:<br>${content}</div>`;
-            box.scrollTop = box.scrollHeight;
-        }
-
         function refreshOTP() {
             const now = Date.now();
-            if (now - lastRefreshTime < 30000) return alert("30초 후에 다시 갱신 가능합니다.");
+            if (now - lastRefreshTime < 30000) return alert("잠시 후 다시 시도하세요.");
             socket.emit('refresh_otp', {room: currentRoom});
             lastRefreshTime = now;
         }
 
-        function leaveRoom() { if(confirm("퇴장하시겠습니까?")) socket.emit('leave_room'); }
-        socket.on('leave_success', () => location.reload());
+        function leaveRoom() { if(confirm("퇴장하시겠습니까?")) location.reload(); }
+        socket.on('nickname_fail', (data) => alert(data.msg));
+        socket.on('join_fail', (data) => alert(data.msg));
         socket.on('notification', (data) => {
             document.getElementById('chat-box').innerHTML += `<div style="text-align:center;color:gray;font-size:0.8em;margin:10px 0;">${data.msg}</div>`;
         });
-        socket.on('join_fail', (data) => alert(data.msg));
+
+        function processFile() {
+            const file = document.getElementById('file-input').files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                socket.emit('send_secure_msg', {msg: e.target.result, type: 'file', fileName: file.name, fileType: file.type });
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function addFileMsg(s, data, fileName, fileType) {
+            const box = document.getElementById('chat-box');
+            const content = fileType.startsWith('image/') ? `<img src="${data}" class="img-msg" onclick="window.open('${data}')">` : `<a href="${data}" download="${fileName}" class="file-link">📎 ${fileName}</a>`;
+            box.innerHTML += `<div style="margin-bottom:15px;"><strong>${s}</strong>:<br>${content}</div>`;
+            box.scrollTop = box.scrollHeight;
+        }
     </script>
 </body>
 </html>
