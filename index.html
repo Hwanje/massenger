@@ -3,49 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VaultChat E2EE + File</title>
+    <title>VaultChat E2EE</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
     <style>
-        body { font-family: sans-serif; background: #121212; color: white; padding: 20px; margin: 0; }
+        body { font-family: -apple-system, sans-serif; background: #121212; color: white; padding: 20px; margin: 0; }
         .container { max-width: 600px; margin: 0 auto; }
         .hidden { display: none !important; }
-        input { background: #2b2b2b; color: white; border: 1px solid #444; padding: 12px; width: calc(100% - 26px); margin-bottom: 10px; border-radius: 6px; }
-        button { padding: 12px; cursor: pointer; border-radius: 6px; border: none; font-weight: bold; }
+        input { background: #2b2b2b; color: white; border: 1px solid #444; padding: 12px; width: calc(100% - 26px); margin-bottom: 10px; border-radius: 8px; }
+        button { padding: 12px; cursor: pointer; border-radius: 8px; border: none; font-weight: bold; transition: 0.2s; }
         .btn-primary { background: #007aff; color: white; width: 100%; }
-        #chat-box { height: 450px; border: 1px solid #333; overflow-y: auto; background: #1e1e1e; padding: 15px; margin-bottom: 10px; border-radius: 10px; }
-        .header { display: flex; justify-content: space-between; align-items: center; background: #222; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+        .btn-primary:active { opacity: 0.7; }
+        #chat-box { height: 500px; border: 1px solid #333; overflow-y: auto; background: #1e1e1e; padding: 15px; margin-bottom: 10px; border-radius: 12px; }
+        .header { display: flex; justify-content: space-between; align-items: center; background: #222; padding: 12px; border-radius: 10px; margin-bottom: 10px; }
         .timer { color: #ff3b30; font-weight: bold; font-size: 0.8em; }
-        .file-preview { max-width: 200px; border-radius: 8px; margin-top: 5px; cursor: pointer; }
-        .file-link { color: #34c759; text-decoration: underline; font-size: 0.9em; cursor: pointer; }
+        .img-msg { max-width: 250px; border-radius: 10px; margin-top: 5px; border: 1px solid #444; }
+        .file-link { background: #333; padding: 10px; border-radius: 8px; display: inline-block; color: #34c759; text-decoration: none; font-size: 0.9em; margin-top: 5px; }
     </style>
 </head>
 <body>
     <div class="container">
         <div id="auth-section">
             <h2>🔐 VaultChat</h2>
-            <input type="text" id="room-name" placeholder="방 이름 입력">
-            <button class="btn-primary" onclick="createRoom()">새 방 만들기</button>
-            <div id="otp-area" class="hidden" style="text-align:center; margin:15px; border: 1px dashed #555; padding: 15px;">
-                <span id="otp-display" style="color:#007aff; font-size:1.5em; font-weight:bold;"></span>
+            <input type="text" id="room-name" placeholder="방 이름">
+            <button class="btn-primary" onclick="createRoom()">방 생성</button>
+            <div id="otp-area" class="hidden" style="text-align:center; margin:15px; border: 1px dashed #555; padding: 15px; border-radius:10px;">
+                <span id="otp-display" style="color:#007aff; font-size:1.8em; font-weight:bold;"></span>
                 <p id="auth-timer" class="timer"></p>
             </div>
             <hr style="border:0.5px solid #333; margin:20px 0;">
-            <input type="text" id="otp-input" placeholder="초대코드 6자리">
-            <button class="btn-primary" style="background:#34c759;" onclick="joinRoom()">방 입장하기</button>
+            <input type="text" id="otp-input" placeholder="코드 6자리">
+            <button class="btn-primary" style="background:#34c759;" onclick="joinRoom()">방 입장</button>
         </div>
 
         <div id="nickname-section" class="hidden">
-            <h3>사용할 닉네임</h3>
+            <h3>닉네임 설정</h3>
             <input type="text" id="user-nickname" placeholder="닉네임 입력">
-            <button class="btn-primary" onclick="setNickname()">대화 시작</button>
+            <button class="btn-primary" onclick="setNickname()">입장하기</button>
         </div>
 
         <div id="chat-section" class="hidden">
             <div class="header">
                 <div>
                     <span id="current-room-title" style="font-weight:bold;"></span>
-                    <span id="chat-otp-display" style="color:#007aff; margin-left:10px;"></span>
+                    <span id="chat-otp-display" style="color:#007aff; margin-left:10px; font-size:0.9em;"></span>
                     <span id="chat-timer" class="timer"></span>
                 </div>
                 <div>
@@ -54,11 +55,11 @@
                 </div>
             </div>
             <div id="chat-box"></div>
-            <div style="display:flex; gap:5px; align-items: center;">
-                <input type="file" id="file-input" class="hidden" onchange="sendFile()">
-                <button style="background:#444; color:white; width:45px;" onclick="document.getElementById('file-input').click()">📎</button>
-                <input type="text" id="msg-input" placeholder="메시지 입력..." style="margin-bottom:0; flex:1;">
-                <button class="btn-primary" style="width:70px;" onclick="sendMessage()">전송</button>
+            <div style="display:flex; gap:8px; align-items: center;">
+                <input type="file" id="file-input" class="hidden" onchange="processFile()">
+                <button style="background:#444; color:white; width:45px; height:45px; font-size:1.2em;" onclick="document.getElementById('file-input').click()">+</button>
+                <input type="text" id="msg-input" placeholder="메시지..." style="margin-bottom:0; flex:1;" onkeypress="if(event.keyCode==13) sendMessage()">
+                <button class="btn-primary" style="width:65px; height:45px;" onclick="sendMessage()">전송</button>
             </div>
         </div>
     </div>
@@ -94,18 +95,16 @@
         });
 
         function createRoom() {
-            const room = document.getElementById('room-name').value;
-            if(room) socket.emit('create_room', {room: room});
+            const r = document.getElementById('room-name').value;
+            if(r) socket.emit('create_room', {room: r});
         }
 
-        socket.on('create_success', (data) => {
-            alert(`'${data.room}' 방이 생성되었습니다. OTP를 입력해 입장하세요.`);
-        });
+        socket.on('create_success', (data) => alert(`방이 생성되었습니다. 코드를 입력하세요.`));
 
         function joinRoom() {
-            const room = document.getElementById('room-name').value;
-            const code = document.getElementById('otp-input').value;
-            if(room && code) socket.emit('join_with_otp', {room: room, code: code});
+            const r = document.getElementById('room-name').value;
+            const c = document.getElementById('otp-input').value;
+            if(r && c) socket.emit('join_with_otp', {room: r, code: c});
         }
 
         socket.on('join_success', (data) => {
@@ -115,100 +114,88 @@
         });
 
         function setNickname() {
-            const nick = document.getElementById('user-nickname').value;
-            if(!nick) return alert("닉네임 입력!");
-            socket.emit('set_nickname', {nickname: nick, room: currentRoom});
+            const n = document.getElementById('user-nickname').value.trim();
+            if(!n) return alert("닉네임을 입력하세요.");
+            socket.emit('set_nickname', {nickname: n, room: currentRoom});
+        }
+
+        socket.on('nickname_success', () => {
             document.getElementById('nickname-section').classList.add('hidden');
             document.getElementById('chat-section').classList.remove('hidden');
             document.getElementById('current-room-title').innerText = currentRoom;
-        }
+        });
 
-        // 텍스트 전송
+        socket.on('nickname_fail', (data) => alert(data.msg));
+
         function sendMessage() {
             const input = document.getElementById('msg-input');
-            if(!input.value || !currentRoom) return;
+            if(!input.value) return;
             const encrypted = CryptoJS.AES.encrypt(input.value, E2EE_KEY, { iv: E2EE_IV }).toString();
-            socket.emit('send_secure_msg', {room: currentRoom, msg: encrypted, type: 'text'});
+            socket.emit('send_secure_msg', {msg: encrypted, type: 'text'});
             input.value = ""; 
         }
 
-        // 파일 전송 함수 추가
-        function sendFile() {
-            const fileInput = document.getElementById('file-input');
-            const file = fileInput.files[0];
+        function processFile() {
+            const file = document.getElementById('file-input').files[0];
             if (!file) return;
-
-            // 용량 제한 (예: 5MB)
-            if (file.size > 5 * 1024 * 1024) return alert("파일이 너무 큽니다. (5MB 제한)");
+            if (file.size > 2 * 1024 * 1024) return alert("파일 제한: 2MB (무료 서버 안정성용)");
 
             const reader = new FileReader();
             reader.onload = function(e) {
                 const base64Data = e.target.result;
-                // 파일 데이터 암호화 (보안상 권장)
-                const encryptedFile = CryptoJS.AES.encrypt(base64Data, E2EE_KEY, { iv: E2EE_IV }).toString();
+                // 파일 전송 시 부하를 줄이기 위해 암호화 없이 전송하거나, 용량을 최적화함
                 socket.emit('send_secure_msg', {
-                    room: currentRoom, 
-                    msg: encryptedFile, 
+                    msg: base64Data, 
                     type: 'file', 
                     fileName: file.name,
                     fileType: file.type 
                 });
             };
             reader.readAsDataURL(file);
-            fileInput.value = ""; // 초기화
+            document.getElementById('file-input').value = "";
         }
 
         socket.on('receive_secure_msg', (data) => {
-            const decrypted = CryptoJS.AES.decrypt(data.msg, E2EE_KEY, { iv: E2EE_IV }).toString(CryptoJS.enc.Utf8);
             const myNick = document.getElementById('user-nickname').value;
             const name = (data.sender === myNick) ? `나(${data.sender})` : data.sender;
             
             if (data.type === 'file') {
-                addFileMsg(name, decrypted, data.fileName, data.fileType);
+                addFileMsg(name, data.msg, data.fileName, data.fileType);
             } else {
+                const decrypted = CryptoJS.AES.decrypt(data.msg, E2EE_KEY, { iv: E2EE_IV }).toString(CryptoJS.enc.Utf8);
                 addMsg(name, decrypted);
             }
         });
 
         function addMsg(s, t) {
             const box = document.getElementById('chat-box');
-            box.innerHTML += `<div style="margin-bottom:8px;"><strong>${s}:</strong> ${t}</div>`;
+            box.innerHTML += `<div style="margin-bottom:10px;"><strong>${s}</strong>: ${t}</div>`;
             box.scrollTop = box.scrollHeight;
         }
 
-        // 파일 메시지 출력 함수 추가
         function addFileMsg(s, data, fileName, fileType) {
             const box = document.getElementById('chat-box');
             let content = "";
             if (fileType.startsWith('image/')) {
-                content = `<img src="${data}" class="file-preview" onclick="window.open('${data}')">`;
+                content = `<img src="${data}" class="img-msg" onclick="window.open('${data}')">`;
             } else {
-                content = `<div class="file-link" onclick="downloadFile('${data}', '${fileName}')">📎 ${fileName} (다운로드)</div>`;
+                content = `<a href="${data}" download="${fileName}" class="file-link">📎 ${fileName}</a>`;
             }
-            box.innerHTML += `<div style="margin-bottom:12px;"><strong>${s}:</strong><br>${content}</div>`;
+            box.innerHTML += `<div style="margin-bottom:15px;"><strong>${s}</strong>:<br>${content}</div>`;
             box.scrollTop = box.scrollHeight;
-        }
-
-        function downloadFile(data, fileName) {
-            const link = document.createElement('a');
-            link.href = data;
-            link.download = fileName;
-            link.click();
         }
 
         function refreshOTP() {
             const now = Date.now();
-            if (now - lastRefreshTime < 30000) return alert("잠시 후 다시 시도하세요.");
-            const room = currentRoom || document.getElementById('room-name').value;
-            if(room) {
-                socket.emit('refresh_otp', {room: room});
-                lastRefreshTime = now;
-            }
+            if (now - lastRefreshTime < 30000) return alert("30초 후에 다시 갱신 가능합니다.");
+            socket.emit('refresh_otp', {room: currentRoom});
+            lastRefreshTime = now;
         }
 
-        function leaveRoom() { if(confirm("퇴장하시겠습니까?")) location.reload(); }
+        function leaveRoom() { if(confirm("퇴장하시겠습니까?")) socket.emit('leave_room'); }
+        socket.on('leave_success', () => location.reload());
         socket.on('notification', (data) => {
-            document.getElementById('chat-box').innerHTML += `<div style="text-align:center;color:gray;font-size:0.8em;margin:5px 0;">${data.msg}</div>`;
+            document.getElementById('chat-box').innerHTML += `<div style="text-align:center;color:gray;font-size:0.8em;margin:10px 0;">${data.msg}</div>`;
         });
         socket.on('join_fail', (data) => alert(data.msg));
     </script>
