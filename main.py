@@ -54,6 +54,7 @@ async def create_room(sid, data):
     await sio.emit('display_otp', {'code': totp.now()}, to=sid)
     await sio.emit('create_success', {'room': room_name}, to=sid)
 
+
 @sio.event
 async def join_with_otp(sid, data):
     room = data.get('room', '').strip()
@@ -114,16 +115,20 @@ async def send_secure_msg(sid, data):
         'fileType': data.get('fileType')
     }, room=user_info['room'])
 
+
 @sio.event
 async def delete_room_admin(sid, data):
-    # 관리자 전용 방 삭제 로직
     target_room = data.get('target_room')
     if target_room in rooms_db:
+        # 1. 방에 있는 유저들에게 폐쇄 알림 및 강제 퇴장 이벤트 전송
+        await sio.emit('room_closed', {'msg': "관리자가 이 방을 폐쇄했습니다."}, room=target_room)
+        
+        # 2. 서버 메모리에서 방 삭제
         del rooms_db[target_room]
-        # 해당 방 유저들에게 알림 후 삭제 사실 전파
-        await sio.emit('notification', {'msg': "관리자가 이 방을 폐쇄했습니다."}, room=target_room)
-        # 관리자 화면 목록 갱신
+        
+        # 3. 관리자 화면 목록 갱신
         await sio.emit('admin_auth_success', {'rooms': list(rooms_db.keys())}, to=sid)
+        print(f"🚫 관리자가 방을 삭제함: {target_room}")
 
 @sio.event
 async def leave_room(sid, data=None):

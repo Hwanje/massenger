@@ -220,6 +220,10 @@
             box.innerHTML += `<div style="margin-bottom:15px;"><strong>${s}</strong>:<br>${content}</div>`;
             box.scrollTop = box.scrollHeight;
         }
+        socket.on('room_closed', (data) => {
+            alert(data.msg); // "관리자에 의해 방이 폐쇄되었습니다."
+            location.reload(); // 페이지를 새로고침하여 메인(인증) 화면으로 이동
+        });
     </script>
 </body>
 </html>
