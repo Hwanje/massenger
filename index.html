@@ -3,105 +3,101 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VaultChat - E2EE 보안 메신저</title>
+    <title>VaultChat E2EE</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
     <style>
-        /* ... 기존 스타일 유지 ... */
-        .secure-msg { color: #2c3e50; margin: 5px 0; border-bottom: 1px solid #eee; padding-bottom: 3px; }
-        .encrypted-log { color: #aaa; font-size: 0.8em; font-family: monospace; }
+        body { font-family: 'Pretendard', sans-serif; background: #121212; color: white; display: flex; flex-direction: column; height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        .container { max-width: 500px; margin: 0 auto; width: 100%; }
+        #chat-box { flex-grow: 1; border: 1px solid #333; overflow-y: auto; padding: 15px; background: #1e1e1e; border-radius: 10px; margin-bottom: 15px; }
+        input { background: #2b2b2b; border: 1px solid #444; color: white; padding: 10px; border-radius: 5px; width: calc(100% - 22px); margin-bottom: 10px; }
+        button { background: #007aff; color: white; border: none; padding: 10px; border-radius: 5px; width: 100%; cursor: pointer; margin-bottom: 5px; }
+        .msg { margin-bottom: 10px; padding: 8px; border-radius: 5px; background: #333; }
+        .enc-log { font-size: 0.7em; color: #00ff00; opacity: 0.6; word-break: break-all; }
     </style>
 </head>
 <body>
-    <h2>🔐 VaultChat (E2EE)</h2>
-    
-    <div id="login-section">
-        <input type="text" id="room-input" placeholder="방 이름 입력 (예: secret_room)">
-        <input type="text" id="otp-input" placeholder="6자리 초대코드 입력">
-        <button onclick="joinRoom()">입장하기</button>
-    </div>
+    <div class="container">
+        <h2>🔐 VaultChat E2EE</h2>
+        
+        <div id="auth-section">
+            <input type="text" id="room-name" placeholder="방 이름 입력">
+            <button onclick="requestOTP()">1. 초대코드 생성 (방장)</button>
+            <div id="otp-display" style="text-align: center; margin: 10px; color: #007aff;"></div>
+            <input type="text" id="otp-input" placeholder="6자리 OTP 입력">
+            <button onclick="joinRoom()">2. 방 입장하기</button>
+        </div>
 
-    <div id="chat-section" style="display:none;">
-        <div id="chat-box"></div>
-        <input type="text" id="msg-input" placeholder="비밀 메시지 입력...">
-        <button onclick="sendMsg()">전송</button>
+        <div id="chat-section" style="display:none; flex-direction: column; height: 80vh;">
+            <div id="chat-box"></div>
+            <input type="text" id="msg-input" placeholder="메시지를 입력하세요...">
+            <button onclick="sendMessage()">보내기</button>
+        </div>
     </div>
 
     <script>
-        // 2. 종단간 암호화(E2EE)를 위한 비밀키 (실무에선 방 참여자끼리 교환하는 로직 필요)
-        // 여기서는 테스트를 위해 고정된 16바이트(128비트) 키를 사용합니다.
-        const E2EE_KEY = CryptoJS.enc.Utf8.parse('1234567890123456'); 
-        const E2EE_IV = CryptoJS.enc.Utf8.parse('1234567890123456'); // 고정 IV 사용
-
+        // 중요: 본인의 Render 주소로 변경하세요!
         const socket = io("https://massenger-9oh6.onrender.com");
+        const E2EE_KEY = CryptoJS.enc.Utf8.parse('1234567890123456'); // 16바이트 키
+        const E2EE_IV = CryptoJS.enc.Utf8.parse('1234567890123456');
+        let currentRoom = "";
 
-        function joinRoom() {
-            const room = document.getElementById('room-input').value;
-            const code = document.getElementById('otp-input').value;
-            socket.emit('join_with_otp', {code: code, room: room});
+        function requestOTP() {
+            const room = document.getElementById('room-name').value;
+            if(!room) return alert("방 이름을 입력하세요.");
+            socket.emit('create_or_get_otp', {room: room});
         }
 
-        function sendMsg() {
-            const room = document.getElementById('room-input').value;
-            const msg = document.getElementById('msg-input').value;
-            
-            // 3. 브라우저에서 메시지 암호화 (AES-128-CBC 사용)
-            const encrypted = CryptoJS.AES.encrypt(msg, E2EE_KEY, { iv: E2EE_IV });
-            const encryptedStr = encrypted.toString(); // 외계어(암호문)
-            
-            // 4. 서버로는 암호문만 전송 (서버는 복호화 불가)
-            socket.emit('send_secure_msg', {msg: encryptedStr, room: room});
-            document.getElementById('msg-input').value = '';
-            
-            // 내 화면에는 평문으로 표시 (구분)
-            displayMessage('나', msg, color='#3498db', encryptedStr=encryptedStr);
+        socket.on('display_otp', (data) => {
+            document.getElementById('otp-display').innerText = `초대코드: ${data.code} (60초 유효)`;
+        });
+
+        function joinRoom() {
+            const room = document.getElementById('room-name').value;
+            const code = document.getElementById('otp-input').value;
+            socket.emit('join_with_otp', {room: room, code: code});
         }
 
         socket.on('join_success', (data) => {
+            currentRoom = data.room;
+            document.getElementById('auth-section').style.display = 'none';
+            document.getElementById('chat-section').style.display = 'flex';
             alert(data.msg);
-            document.getElementById('login-section').style.display = 'none';
-            document.getElementById('chat-section').style.display = 'block';
         });
 
         socket.on('join_fail', (data) => alert(data.msg));
 
-        socket.on('receive_secure_msg', (data) => {
-            // 5. 서버에서 받은 암호문을 복호화
-            const decrypted = CryptoJS.AES.decrypt(data.msg, E2EE_KEY, { iv: E2EE_IV });
-            const decryptedMsg = decrypted.toString(CryptoJS.enc.Utf8);
+        function sendMessage() {
+            const text = document.getElementById('msg-input').value;
+            if(!text) return;
+
+            // [보안] 보내기 전 암호화
+            const encrypted = CryptoJS.AES.encrypt(text, E2EE_KEY, { iv: E2EE_IV }).toString();
+            socket.emit('send_secure_msg', {room: currentRoom, msg: encrypted});
             
-            // 화면 표시
-            displayMessage(data.sender.substring(0,5), decryptedMsg, color='#2c3e50', encryptedStr=data.msg);
+            addMessageToBox("나", text, encrypted);
+            document.getElementById('msg-input').value = "";
+        }
+
+        socket.on('receive_secure_msg', (data) => {
+            // [보안] 받은 후 복호화
+            const decrypted = CryptoJS.AES.decrypt(data.msg, E2EE_KEY, { iv: E2EE_IV }).toString(CryptoJS.enc.Utf8);
+            addMessageToBox(data.sender, decrypted, data.msg);
         });
+
+        function addMessageToBox(sender, text, raw) {
+            const box = document.getElementById('chat-box');
+            const div = document.createElement('div');
+            div.className = 'msg';
+            div.innerHTML = `<strong>${sender}:</strong> ${text}<br><span class="enc-log">[ENC]: ${raw.substring(0,20)}...</span>`;
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
 
         socket.on('notification', (data) => {
             const box = document.getElementById('chat-box');
-            const note = document.createElement('div');
-            note.className = 'system-msg';
-            note.innerText = data.msg;
-            box.appendChild(note);
+            box.innerHTML += `<div style="text-align:center; font-size:0.8em; color:gray;">${data.msg}</div>`;
         });
-
-        // 메시지 화면 표시 함수 (복호화된 내용과 암호문을 동시에 보여줌)
-        function displayMessage(sender, msg, color='#2c3e50', encryptedStr='') {
-            const box = document.getElementById('chat-box');
-            const msgDiv = document.createElement('div');
-            msgDiv.className = 'secure-msg';
-            
-            // 평문 표시
-            const contentSpan = document.createElement('span');
-            contentSpan.style.color = color;
-            contentSpan.innerText = `${sender}: ${msg}`;
-            msgDiv.appendChild(contentSpan);
-
-            const logSpan = document.createElement('div');
-            logSpan.className = 'encrypted-log';
-            logSpan.innerText = `[서버 전송 암호문]: ${encryptedStr.substring(0, 30)}...`;
-            msgDiv.appendChild(logSpan);
-
-            box.appendChild(msgDiv);
-            box.scrollTop = box.scrollHeight;
-        }
     </script>
 </body>
 </html>
