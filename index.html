@@ -26,14 +26,14 @@
     <div class="container">
         <div id="auth-section">
             <h2>🔐 VaultChat</h2>
-            <input type="text" id="room-name" placeholder="방 이름 (또는 Admin ID)">
+            <input type="text" id="room-name" placeholder="방 이름">
             <button class="btn-primary" onclick="createRoom()">방 생성</button>
             <div id="otp-area" class="hidden" style="text-align:center; margin:15px; border: 1px dashed #555; padding: 15px; border-radius:10px;">
                 <span id="otp-display" style="color:#007aff; font-size:1.8em; font-weight:bold;"></span>
                 <p id="auth-timer" class="timer"></p>
             </div>
             <hr style="border:0.5px solid #333; margin:20px 0;">
-            <input type="text" id="otp-input" placeholder="코드 6자리 (또는 Admin PW)">
+            <input type="text" id="otp-input" placeholder="코드 6자리">
             <button class="btn-primary" style="background:#34c759;" onclick="joinRoom()">방 입장</button>
         </div>
 
