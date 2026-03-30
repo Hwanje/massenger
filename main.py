@@ -2,7 +2,11 @@ import pyotp
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import socketio
-
+import os
+from dotenv import load_dotenv
+load_dotenv()
+ADMIN_ID = os.getenv("ADMIN_ID")
+ADMIN_PW = os.getenv("ADMIN_PW")
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*', max_decode_size=10000000) # 파일 전송을 위해 용량 확장
 app = FastAPI()
 
