@@ -7,7 +7,6 @@ sio = socketio.Client()
 def main(page: ft.Page):
     page.title = "VaultChat - OTP Invitation"
     
-    # UI 요소들
     code_display = ft.Text("초대 코드: 버튼을 눌러 생성", size=20, weight="bold")
     otp_input = ft.TextField(label="6자리 초대코드 입력", width=200)
     chat_log = ft.Column(scroll=ft.ScrollMode.ALWAYS, expand=True)
