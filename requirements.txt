@@ -1,5 +1,21 @@
-fastapi
-python-socketio
-uvicorn
-pyotp
-python-dotenv
+# VaultChat Advanced - Dependencies
+# Enhanced Security Messenger Backend
+
+# Web Framework
+fastapi==0.109.0
+uvicorn==0.27.0
+
+# Socket.IO
+python-socketio==5.11.0
+
+# OTP / 2FA Authentication
+pyotp==2.9.0
+
+# Environment Variables
+python-dotenv==1.0.0
+
+# JWT Authentication
+PyJWT==2.8.0
+
+# Async Support
+asyncio-throttle==1.0.2
