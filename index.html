@@ -1250,7 +1250,7 @@
 
             try {
                 // 통계 로드
-                const statsResponse = await fetch('/api/admin/stats', {
+                const statsResponse = await fetch('https://massenger-9oh6.onrender.com/api/admin/stats', {
                     headers: { 'Authorization': `Bearer ${adminToken}` }
                 });
                 
