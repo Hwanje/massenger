@@ -1096,7 +1096,9 @@
 
     <script>
         // ============== 초기화 ==============
-        const socket = io("https://massenger-9oh6.onrender.com");
+        const socket = io("https://massenger-9oh6.onrender.com", {
+            path: "/socket.io"
+        });
         const E2EE_KEY = CryptoJS.enc.Utf8.parse('vaultchat2024securekey');
         const E2EE_IV = CryptoJS.enc.Utf8.parse('vaultchat2024iv');
         
