@@ -287,8 +287,7 @@ async def admin_login(request: Request):
     return {
         "success": True,
         "token": token,
-        "message": "관리자 로그인 성공",
-        "2fa_secret": ADMIN_2FA_SECRET  # 초기 설정 시에만 표시
+        "message": "관리자 로그인 성공"
     }
 
 @app.get("/api/admin/stats")
@@ -380,7 +379,7 @@ async def disconnect(sid):
             conn.close()
         
         del user_sessions[sid]
-        
+
         # 방에 남은 인원 확인
         if room:
             remaining = [s for s, data in user_sessions.items() if data.get('room') == room]
@@ -391,7 +390,7 @@ async def disconnect(sid):
                 c.execute("UPDATE rooms SET is_active = 0, user_count = 0 WHERE name = ?", (room,))
                 conn.commit()
                 conn.close()
-            else:
+            elif nick:
                 await sio.emit('notification', {'msg': f"'{nick}'님이 나갔습니다.", 'type': 'system'}, room=room)
 
 @sio.event
@@ -615,8 +614,9 @@ async def refresh_otp(sid, data):
             'type': 'system'
         }, to=sid)
         # 전체 방에는 시스템 알림만
+        nick = user.get('nickname', '알 수 없음')
         await sio.emit('notification', {
-            'msg': f"🔑 '{user['nickname']}'님이 OTP를 갱신했습니다.",
+            'msg': f"🔑 '{nick}'님이 OTP를 갱신했습니다.",
             'type': 'system'
         }, room=room)
         await sio.emit('display_otp', {'code': new_otp, 'time_left': 60}, room=room)
@@ -631,10 +631,14 @@ async def delete_room_admin(sid, data):
     if not verify_jwt_token(token, ip_address):
         await sio.emit('admin_action_result', {'success': False, 'msg': "권한이 없습니다."}, to=sid)
         return
-    
-    payload = jwt.decode(token, SECRET_KEY, algorithms=[JWT_ALGORITHM])
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[JWT_ALGORITHM])
+    except jwt.InvalidTokenError:
+        await sio.emit('admin_action_result', {'success': False, 'msg': "토큰 오류입니다."}, to=sid)
+        return
     admin_id = payload.get('admin_id', 'unknown')
-    
+
     if target:
         # 방 폐쇄 로직
         conn = sqlite3.connect('vaultchat.db')
@@ -665,7 +669,11 @@ async def send_global_notice(sid, data):
         return
     
     if msg:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        except jwt.InvalidTokenError:
+            await sio.emit('admin_action_result', {'success': False, 'msg': "토큰 오류입니다."}, to=sid)
+            return
         admin_id = payload.get('admin_id', 'unknown')
         
         await sio.emit('global_notice', {
@@ -688,10 +696,14 @@ async def kick_user(sid, data):
     if not verify_jwt_token(token, ip_address):
         await sio.emit('admin_action_result', {'success': False, 'msg': "권한이 없습니다."}, to=sid)
         return
-    
-    payload = jwt.decode(token, SECRET_KEY, algorithms=[JWT_ALGORITHM])
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[JWT_ALGORITHM])
+    except jwt.InvalidTokenError:
+        await sio.emit('admin_action_result', {'success': False, 'msg': "토큰 오류입니다."}, to=sid)
+        return
     admin_id = payload.get('admin_id', 'unknown')
-    
+
     # 대상 사용자 찾기
     target_sid = None
     for s_id, info in user_sessions.items():
@@ -803,8 +815,9 @@ async def cleanup_expired_sessions():
         except Exception as e:
             print(f"정리 작업 오류: {e}")
 
-# 시작 시 정리 작업 실행
-asyncio.create_task(cleanup_expired_sessions())
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(cleanup_expired_sessions())
 
 print("=" * 50)
 print("VaultChat Advanced Server Started")

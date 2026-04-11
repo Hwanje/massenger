@@ -502,14 +502,13 @@
                             <label class="input-label">닉네임 (2~20자)</label>
                             <input type="text" id="nickname-input" placeholder="영문, 숫자, '_', '-' 사용 가능" maxlength="20">
                         </div>
-                        <button class="btn btn-primary" onclick="submitNickname('${room}')">✓ 입장하기</button>
+                        <button class="btn btn-primary" id="nickname-submit-btn">✓ 입장하기</button>
                     </div>
                 </div>
             `;
             document.body.appendChild(dialog);
             document.getElementById('nickname-input').focus();
-            
-            // Enter 키로 제출
+            document.getElementById('nickname-submit-btn').addEventListener('click', () => submitNickname(room));
             document.getElementById('nickname-input').addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') submitNickname(room);
             });
