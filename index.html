@@ -438,8 +438,8 @@
         const API_BASE = "https://massenger-9oh6.onrender.com";
         const socket = io(API_BASE, { path: "/socket.io" });
         
-        // E2EE 키 (서버와 동일해야 함) - 32바이트 키
-        const E2EE_KEY = CryptoJS.enc.Utf8.parse('vaultchat2024securekey32bytes!!x');
+        // E2EE 키 - 패스프레이즈 문자열로 사용 (CryptoJS가 salt+IV 자동 처리)
+        const E2EE_KEY = 'vaultchat2024securekey32bytes!!';
         
         let currentRoom = "";
         let myNickname = "";
