@@ -428,13 +428,26 @@ async def admin_auth(sid, data):
 async def create_room(sid, data):
     """방 생성"""
     room_name = data.get('room', '').strip()
-    creator = data.get('creator', 'Unknown')
+    creator = data.get('creator', '').strip()
     ip_address = user_sessions.get(sid, {}).get('ip', 'unknown')
-    
+
     if not room_name:
         await sio.emit('join_fail', {'msg': "방 이름을 입력해주세요."}, to=sid)
         return
-    
+
+    # 닉네임 유효성 검사 (set_nickname과 동일한 규칙)
+    if not creator or len(creator) < 2 or len(creator) > 20:
+        await sio.emit('join_fail', {'msg': "닉네임은 2~20자여야 합니다."}, to=sid)
+        return
+    if not creator.replace('_', '').replace('-', '').isalnum():
+        await sio.emit('join_fail', {'msg': "닉네임에는 영문, 숫자, '_', '-'만 사용 가능합니다."}, to=sid)
+        return
+    # 닉네임 중복 체크
+    for info in user_sessions.values():
+        if info.get('nickname') == creator:
+            await sio.emit('join_fail', {'msg': "이미 사용 중인 닉네임입니다."}, to=sid)
+            return
+
     # Rate Limit 체크
     if not check_rate_limit(ip_address):
         await sio.emit('join_fail', {'msg': "너무 많은 요청입니다. 잠시 후 다시 시도하세요."}, to=sid)
